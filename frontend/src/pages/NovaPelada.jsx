@@ -4,7 +4,7 @@ import { createMatch, addPlayers } from "../api/client";
 import { useLang } from "../i18n/LangContext";
 
 const inputClass =
-  "bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 w-full text-gray-100 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-[border-color,box-shadow] duration-150";
+  "bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 w-full text-gray-900 dark:text-gray-100 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-[border-color,box-shadow] duration-150";
 
 export default function NewMatch() {
   const { t } = useLang();
@@ -48,7 +48,7 @@ export default function NewMatch() {
       <h1 className="text-2xl font-bold mb-6">{t("newMatch.title")}</h1>
       <div className="flex flex-col gap-5">
         <div>
-          <label className="block text-sm text-gray-400 mb-1.5">{t("newMatch.date")}</label>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">{t("newMatch.date")}</label>
           <input
             type="date"
             value={matchDate}
@@ -57,9 +57,9 @@ export default function NewMatch() {
           />
         </div>
         <div>
-          <label className="block text-sm text-gray-400 mb-1.5">
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">
             {t("newMatch.listLabel")}{" "}
-            <span className="text-gray-600">({t("newMatch.listHint")})</span>
+            <span className="text-gray-400 dark:text-gray-600">({t("newMatch.listHint")})</span>
           </label>
           <textarea
             rows={10}
@@ -69,7 +69,7 @@ export default function NewMatch() {
             className={`${inputClass} font-mono text-sm resize-none`}
           />
         </div>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
         <button
           onClick={handleSubmit}
           disabled={loading}

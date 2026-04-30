@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LangProvider } from "./i18n/LangContext";
+import { ThemeProvider } from "./i18n/ThemeContext";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import NewMatch from "./pages/NovaPelada";
@@ -9,6 +10,7 @@ import Stats from "./pages/Stats";
 
 export default function App() {
   return (
+    <ThemeProvider>
     <LangProvider>
       <BrowserRouter>
         <Routes>
@@ -22,5 +24,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </LangProvider>
+    </ThemeProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   getMatch,
   getMatchPlayers,
@@ -10,22 +10,24 @@ import {
   updateOrganizerGoals,
   updateScore,
   getPaymentReminder,
+  deleteMatch,
 } from "../api/client";
 import { useLang } from "../i18n/LangContext";
 import Spinner from "../components/Spinner";
 
 const TEAM_KEYS   = { A: "teams.black", B: "teams.white", C: "teams.colorful" };
-const TEAM_BORDER = { A: "border-l-gray-400", B: "border-l-gray-100", C: "border-l-orange-400" };
-const TEAM_LABEL  = { A: "text-gray-300",      B: "text-white",        C: "text-orange-400" };
+const TEAM_BORDER = { A: "border-l-gray-400", B: "border-l-gray-300 dark:border-l-gray-100", C: "border-l-orange-400" };
+const TEAM_LABEL  = { A: "text-gray-600 dark:text-gray-300", B: "text-gray-800 dark:text-white", C: "text-orange-400" };
 
 const paidBadge =
   "text-xs px-2.5 py-0.5 rounded-full font-medium ring-1 transition-[background-color,color] duration-150 active:scale-[0.97]";
 
 const scoreBtn =
-  "w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 active:scale-90 text-gray-300 text-lg transition-[transform,background-color] duration-100";
+  "w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 active:scale-90 text-gray-600 dark:text-gray-300 text-lg transition-[transform,background-color] duration-100";
 
 export default function Match() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { t } = useLang();
 
   const [match, setMatch]             = useState(null);
@@ -57,6 +59,12 @@ export default function Match() {
   async function handleReopen() {
     await reopenMatch(id);
     load();
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(t("match.deleteConfirm"))) return;
+    await deleteMatch(id);
+    navigate("/");
   }
 
   async function togglePaid(player) {
@@ -133,7 +141,7 @@ export default function Match() {
               year: "numeric",
             })}
           </h1>
-          <p className="text-gray-400 mt-1 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
             {match.format ?? "—"} · {players.length} {t("match.players")}
             {match.fee_per_player && ` · R$ ${match.fee_per_player.toFixed(2)}/${t("match.person")}`}
           </p>
@@ -149,7 +157,7 @@ export default function Match() {
               </button>
               <button
                 onClick={handleClose}
-                className="bg-gray-800 hover:bg-gray-700 active:scale-[0.97] text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
+                className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 active:scale-[0.97] text-gray-700 dark:text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
               >
                 {t("match.close")}
               </button>
@@ -157,11 +165,17 @@ export default function Match() {
           ) : (
             <button
               onClick={handleReopen}
-              className="bg-gray-800 hover:bg-gray-700 active:scale-[0.97] text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
+              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 active:scale-[0.97] text-gray-700 dark:text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
             >
               {t("match.reopen")}
             </button>
           )}
+          <button
+            onClick={handleDelete}
+            className="text-gray-400 dark:text-gray-600 hover:text-red-400 active:scale-[0.97] text-sm px-3 py-2 rounded-lg transition-[transform,color] duration-150"
+          >
+            {t("match.delete")}
+          </button>
         </div>
       </div>
 
@@ -175,22 +189,22 @@ export default function Match() {
               return (
                 <div
                   key={label}
-                  className={`bg-gray-900 border border-gray-800 border-l-4 ${TEAM_BORDER[label] ?? "border-l-gray-600"} rounded-xl p-4`}
+                  className={`bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 border-l-4 ${TEAM_BORDER[label] ?? "border-l-gray-400"} rounded-xl p-4`}
                 >
-                  <p className={`font-semibold mb-3 ${TEAM_LABEL[label] ?? "text-gray-300"}`}>
+                  <p className={`font-semibold mb-3 ${TEAM_LABEL[label] ?? "text-gray-600 dark:text-gray-300"}`}>
                     {t("match.teamPrefix")} {teamName}{" "}
-                    <span className="text-gray-500 font-normal text-sm">{t("match.avg")} {avg}</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-normal text-sm">{t("match.avg")} {avg}</span>
                   </p>
                   <div className="flex flex-col gap-2.5">
                     {list.map((player) => (
                       <div key={player.id} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-200">{player.name}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-200">{player.name}</span>
                         <button
                           onClick={() => togglePaid(player)}
                           className={`${paidBadge} ${
                             player.paid
-                              ? "bg-green-500/20 text-green-400 ring-green-500/30"
-                              : "bg-gray-700/60 text-gray-500 ring-gray-600/40"
+                              ? "bg-green-500/20 text-green-600 dark:text-green-400 ring-green-500/30"
+                              : "bg-gray-100 dark:bg-gray-700/60 text-gray-500 ring-gray-200 dark:ring-gray-600/40"
                           }`}
                         >
                           {player.paid ? t("match.paid") : t("match.pending")}
@@ -205,27 +219,27 @@ export default function Match() {
 
           {/* Scoreboard — 2 teams only */}
           {isTwoTeams && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
-              <p className="text-sm font-medium text-gray-400 mb-4">{t("match.score")}</p>
-              <div className="flex items-center justify-center gap-6">
-                <div className="flex flex-col items-center gap-2">
-                  <span className={`text-sm font-medium ${TEAM_LABEL.A}`}>{t("teams.black")}</span>
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 mb-4">
+              <p className="text-xs font-medium text-gray-400 dark:text-gray-600 uppercase tracking-widest mb-6 text-center">{t("match.score")}</p>
+              <div className="flex items-center justify-center gap-8">
+                <div className="flex flex-col items-center gap-3">
+                  <span className={`text-[11px] uppercase tracking-widest font-medium ${TEAM_LABEL.A}`}>{t("teams.black")}</span>
+                  <span className="text-7xl font-bold tabular-nums leading-none">
+                    {match.score_a ?? 0}
+                  </span>
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleScore(-1, 0)} className={scoreBtn}>−</button>
-                    <span className="text-4xl font-bold w-12 text-center tabular-nums">
-                      {match.score_a ?? 0}
-                    </span>
                     <button onClick={() => handleScore(1, 0)} className={scoreBtn}>+</button>
                   </div>
                 </div>
-                <span className="text-2xl text-gray-700 font-bold pb-1">×</span>
-                <div className="flex flex-col items-center gap-2">
-                  <span className={`text-sm font-medium ${TEAM_LABEL.B}`}>{t("teams.white")}</span>
+                <span className="text-3xl text-gray-200 dark:text-gray-800 font-bold leading-none mb-6">×</span>
+                <div className="flex flex-col items-center gap-3">
+                  <span className={`text-[11px] uppercase tracking-widest font-medium ${TEAM_LABEL.B}`}>{t("teams.white")}</span>
+                  <span className="text-7xl font-bold tabular-nums leading-none">
+                    {match.score_b ?? 0}
+                  </span>
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleScore(0, -1)} className={scoreBtn}>−</button>
-                    <span className="text-4xl font-bold w-12 text-center tabular-nums">
-                      {match.score_b ?? 0}
-                    </span>
                     <button onClick={() => handleScore(0, 1)} className={scoreBtn}>+</button>
                   </div>
                 </div>
@@ -234,17 +248,17 @@ export default function Match() {
           )}
 
           {/* Teams message */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-8">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-8">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-gray-400">{t("match.teamsMsg")}</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("match.teamsMsg")}</p>
               <button
                 onClick={copyTeamsMessage}
-                className="text-sm text-green-400 hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
+                className="text-sm text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
               >
                 {copiedTeams ? t("match.copied") : t("match.copy")}
               </button>
             </div>
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
               {teamsMessage}
             </pre>
           </div>
@@ -253,8 +267,8 @@ export default function Match() {
 
       {/* Unassigned */}
       {unassigned.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-8">
-          <p className="font-medium text-gray-400 mb-3 text-sm">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-8">
+          <p className="font-medium text-gray-500 dark:text-gray-400 mb-3 text-sm">
             {t("match.list")} ({unassigned.length} {t("match.players")})
           </p>
           <div className="flex flex-col gap-2">
@@ -262,14 +276,14 @@ export default function Match() {
               <div key={player.id} className="flex items-center justify-between">
                 <span className="text-sm">
                   {player.name}{" "}
-                  <span className="text-gray-600 text-xs">({player.rating})</span>
+                  <span className="text-gray-400 dark:text-gray-600 text-xs">({player.rating})</span>
                 </span>
                 <button
                   onClick={() => togglePaid(player)}
                   className={`${paidBadge} ${
                     player.paid
-                      ? "bg-green-500/20 text-green-400 ring-green-500/30"
-                      : "bg-gray-700/60 text-gray-500 ring-gray-600/40"
+                      ? "bg-green-500/20 text-green-600 dark:text-green-400 ring-green-500/30"
+                      : "bg-gray-100 dark:bg-gray-700/60 text-gray-500 ring-gray-200 dark:ring-gray-600/40"
                   }`}
                 >
                   {player.paid ? t("match.paid") : t("match.pending")}
@@ -281,29 +295,19 @@ export default function Match() {
       )}
 
       {/* My goals */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4">
         <p className="font-semibold mb-3">{t("match.myGoals")}</p>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => handleMyGoals(-1)}
-            className={scoreBtn}
-          >
-            −
-          </button>
+          <button onClick={() => handleMyGoals(-1)} className={scoreBtn}>−</button>
           <span className="text-3xl font-bold w-10 text-center tabular-nums">
             {match.organizer_goals ?? 0}
           </span>
-          <button
-            onClick={() => handleMyGoals(1)}
-            className={scoreBtn}
-          >
-            +
-          </button>
+          <button onClick={() => handleMyGoals(1)} className={scoreBtn}>+</button>
         </div>
       </div>
 
       {/* Payments */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <p className="font-semibold">
             {t("match.payments")}{" "}
@@ -314,19 +318,27 @@ export default function Match() {
           <button
             onClick={generateReminder}
             disabled={unpaid.length === 0}
-            className="text-sm bg-gray-800 hover:bg-gray-700 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-[transform,background-color] duration-150"
+            className="text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-[transform,background-color] duration-150"
           >
             {t("match.generateReminder")}
           </button>
         </div>
+        {players.length > 0 && (
+          <div className="h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-green-500/70 rounded-full transition-[width] duration-300"
+              style={{ width: `${(players.filter((p) => p.paid).length / players.length) * 100}%` }}
+            />
+          </div>
+        )}
         {reminder && (
           <div className="mt-3">
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-950 border border-gray-800 rounded-lg p-3 font-sans">
+            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-3 font-sans">
               {reminder}
             </pre>
             <button
               onClick={copyReminder}
-              className="mt-2 text-sm text-green-400 hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
+              className="mt-2 text-sm text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
             >
               {copied ? t("match.copied") : t("match.copyClipboard")}
             </button>
