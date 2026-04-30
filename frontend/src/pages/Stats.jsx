@@ -1,56 +1,65 @@
 import { useEffect, useState } from "react";
-import { getDashboard, getStatsJogadores } from "../api/client";
+import { getDashboard, getPlayerStats } from "../api/client";
+import { useLang } from "../i18n/LangContext";
+import Spinner from "../components/Spinner";
 
-function Card({ label, value }) {
+function StatCard({ label, value }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-3xl font-bold tracking-tight">{value}</p>
     </div>
   );
 }
 
 export default function Stats() {
+  const { t } = useLang();
   const [dash, setDash] = useState(null);
-  const [jogadores, setJogadores] = useState([]);
+  const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getDashboard(), getStatsJogadores()]).then(([d, j]) => { setDash(d.data); setJogadores(j.data); setLoading(false); });
+    Promise.all([getDashboard(), getPlayerStats()]).then(([d, p]) => {
+      setDash(d.data);
+      setPlayers(p.data);
+      setLoading(false);
+    });
   }, []);
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  if (loading) return <Spinner />;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Estatísticas</h1>
+      <h1 className="text-2xl font-bold mb-6">{t("stats.title")}</h1>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-10">
-        <Card label="Peladas realizadas" value={dash.total_peladas} />
-        <Card label="Artilheiro" value={dash.artilheiro ?? "—"} />
-        <Card label="Mais presente" value={dash.jogador_mais_presente ?? "—"} />
-        <Card label="Peladas 6x6" value={dash.peladas_6x6} />
-        <Card label="Peladas 5v5v5" value={dash.peladas_5v5v5} />
+        <StatCard label={t("stats.matchesPlayed")} value={dash.total_matches} />
+        <StatCard label={t("stats.totalCollected")} value={`R$ ${dash.total_collected.toFixed(2)}`} />
+        <StatCard label={t("stats.twoTeams")} value={dash.matches_6x6} />
+        <StatCard label={t("stats.threeTeams")} value={dash.matches_5v5v5} />
+        <StatCard label={t("stats.myGoals")} value={dash.my_total_goals} />
+        <StatCard label={t("stats.myGoals6x6")} value={dash.my_goals_6x6} />
       </div>
-      <h2 className="text-lg font-semibold mb-3">Por jogador</h2>
-      <div className="overflow-x-auto">
+
+      <h2 className="text-lg font-semibold mb-4">{t("stats.perPlayer")}</h2>
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-800">
-              <th className="pb-2 pr-4">Jogador</th>
-              <th className="pb-2 pr-4">Rating</th>
-              <th className="pb-2 pr-4">Peladas</th>
-              <th className="pb-2 pr-4">Presença</th>
-              <th className="pb-2">Gols</th>
+            <tr className="text-left border-b border-gray-800">
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("stats.colPlayer")}</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("stats.colRating")}</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("stats.colMatches")}</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("stats.colAttendance")}</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("stats.colPaid")}</th>
             </tr>
           </thead>
-          <tbody>
-            {jogadores.map((j) => (
-              <tr key={j.jogador_id} className="border-b border-gray-800/50 hover:bg-gray-900">
-                <td className="py-2.5 pr-4 font-medium">{j.nome}</td>
-                <td className="py-2.5 pr-4 text-gray-400">{j.rating}</td>
-                <td className="py-2.5 pr-4">{j.total_peladas}</td>
-                <td className="py-2.5 pr-4 text-gray-400">{j.percentual_presenca}%</td>
-                <td className="py-2.5">{j.total_gols}</td>
+          <tbody className="divide-y divide-gray-800/60">
+            {players.map((p) => (
+              <tr key={p.player_id} className="hover:bg-gray-800/40 transition-colors duration-100">
+                <td className="px-4 py-3 font-medium">{p.name}</td>
+                <td className="px-4 py-3 text-gray-400">{p.rating}</td>
+                <td className="px-4 py-3">{p.total_matches}</td>
+                <td className="px-4 py-3 text-gray-400">{p.attendance_rate}%</td>
+                <td className="px-4 py-3 text-gray-400">R$ {p.total_paid_amount.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>

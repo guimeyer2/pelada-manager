@@ -1,106 +1,335 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getPelada, getJogadoresPelada, sortearTimes, atualizarPagamento, atualizarGols, getMensagemCobranca } from "../api/client";
+import {
+  getMatch,
+  getMatchPlayers,
+  drawTeams,
+  closeMatch,
+  reopenMatch,
+  updatePayment,
+  updateOrganizerGoals,
+  updateScore,
+  getPaymentReminder,
+} from "../api/client";
+import { useLang } from "../i18n/LangContext";
+import Spinner from "../components/Spinner";
 
-export default function Pelada() {
+const TEAM_KEYS   = { A: "teams.black", B: "teams.white", C: "teams.colorful" };
+const TEAM_BORDER = { A: "border-l-gray-400", B: "border-l-gray-100", C: "border-l-orange-400" };
+const TEAM_LABEL  = { A: "text-gray-300",      B: "text-white",        C: "text-orange-400" };
+
+const paidBadge =
+  "text-xs px-2.5 py-0.5 rounded-full font-medium ring-1 transition-[background-color,color] duration-150 active:scale-[0.97]";
+
+const scoreBtn =
+  "w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 active:scale-90 text-gray-300 text-lg transition-[transform,background-color] duration-100";
+
+export default function Match() {
   const { id } = useParams();
-  const [pelada, setPelada] = useState(null);
-  const [jogadores, setJogadores] = useState([]);
-  const [mensagem, setMensagem] = useState("");
-  const [copiado, setCopiado] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { t } = useLang();
 
-  async function carregar() {
-    const [p, j] = await Promise.all([getPelada(id), getJogadoresPelada(id)]);
-    setPelada(p.data);
-    setJogadores(j.data);
+  const [match, setMatch]             = useState(null);
+  const [players, setPlayers]         = useState([]);
+  const [reminder, setReminder]       = useState("");
+  const [copied, setCopied]           = useState(false);
+  const [copiedTeams, setCopiedTeams] = useState(false);
+  const [loading, setLoading]         = useState(true);
+
+  async function load() {
+    const [m, p] = await Promise.all([getMatch(id), getMatchPlayers(id)]);
+    setMatch(m.data);
+    setPlayers(p.data);
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [id]);
+  useEffect(() => { load(); }, [id]);
 
-  async function handleSortear() { await sortearTimes(id); carregar(); }
-
-  async function togglePago(pj) {
-    await atualizarPagamento(id, pj.id, !pj.pago);
-    setJogadores((prev) => prev.map((j) => j.id === pj.id ? { ...j, pago: !j.pago } : j));
+  async function handleDraw() {
+    await drawTeams(id);
+    load();
   }
 
-  async function handleGols(pj, delta) {
-    const novo = Math.max(0, pj.gols + delta);
-    await atualizarGols(id, pj.id, novo);
-    setJogadores((prev) => prev.map((j) => j.id === pj.id ? { ...j, gols: novo } : j));
+  async function handleClose() {
+    await closeMatch(id);
+    load();
   }
 
-  async function gerarCobranca() { const r = await getMensagemCobranca(id); setMensagem(r.data.mensagem); }
-  async function copiar() { await navigator.clipboard.writeText(mensagem); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }
+  async function handleReopen() {
+    await reopenMatch(id);
+    load();
+  }
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  async function togglePaid(player) {
+    await updatePayment(id, player.id, !player.paid);
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === player.id ? { ...p, paid: !player.paid } : p))
+    );
+  }
 
-  const porTime = jogadores.reduce((acc, j) => { const k = j.time || "sem_time"; if (!acc[k]) acc[k] = []; acc[k].push(j); return acc; }, {});
-  const semTime = porTime["sem_time"] || [];
-  const times = Object.entries(porTime).filter(([k]) => k !== "sem_time");
-  const pendentes = jogadores.filter((j) => !j.pago);
+  async function handleMyGoals(delta) {
+    const newGoals = Math.max(0, (match.organizer_goals ?? 0) + delta);
+    const res = await updateOrganizerGoals(id, newGoals);
+    setMatch(res.data);
+  }
+
+  async function handleScore(deltaA, deltaB) {
+    const newA = Math.max(0, (match.score_a ?? 0) + deltaA);
+    const newB = Math.max(0, (match.score_b ?? 0) + deltaB);
+    const res = await updateScore(id, newA, newB);
+    setMatch(res.data);
+  }
+
+  async function generateReminder() {
+    const r = await getPaymentReminder(id);
+    setReminder(r.data.message);
+  }
+
+  async function copyReminder() {
+    await navigator.clipboard.writeText(reminder);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function copyTeamsMessage() {
+    await navigator.clipboard.writeText(teamsMessage);
+    setCopiedTeams(true);
+    setTimeout(() => setCopiedTeams(false), 2000);
+  }
+
+  if (loading) return <Spinner />;
+
+  const byTeam = players.reduce((acc, p) => {
+    const key = p.team || "no_team";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+
+  const unassigned = byTeam["no_team"] || [];
+  const teams = Object.entries(byTeam)
+    .filter(([k]) => k !== "no_team")
+    .sort(([a], [b]) => a.localeCompare(b));
+  const unpaid = players.filter((p) => !p.paid);
+  const isOpen = match.status === "open";
+  const isTwoTeams = teams.length === 2;
+
+  const teamsMessage = teams
+    .map(([label, list]) => {
+      const tName = t(TEAM_KEYS[label] ?? label);
+      return `*${t("match.teamPrefix")} ${tName}:*\n${list.map((p) => `- ${p.name}`).join("\n")}`;
+    })
+    .join("\n\n");
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Pelada {new Date(pelada.data + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })}</h1>
-          <p className="text-gray-400 mt-1">{pelada.formato ?? "—"} · {jogadores.length} jogadores{pelada.valor_por_jogador && ` · R$ ${pelada.valor_por_jogador.toFixed(2)}/pessoa`}</p>
+          <h1 className="text-2xl font-bold">
+            {new Date(match.date + "T12:00:00").toLocaleDateString("pt-BR", {
+              weekday: "long",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })}
+          </h1>
+          <p className="text-gray-400 mt-1 text-sm">
+            {match.format ?? "—"} · {players.length} {t("match.players")}
+            {match.fee_per_player && ` · R$ ${match.fee_per_player.toFixed(2)}/${t("match.person")}`}
+          </p>
         </div>
-        <button onClick={handleSortear} className="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors">Sortear Times</button>
+        <div className="flex gap-2 items-center">
+          {isOpen ? (
+            <>
+              <button
+                onClick={handleDraw}
+                className="bg-green-600 hover:bg-green-500 active:scale-[0.97] text-white text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
+              >
+                {teams.length > 0 ? t("match.reshuffle") : t("match.draw")}
+              </button>
+              <button
+                onClick={handleClose}
+                className="bg-gray-800 hover:bg-gray-700 active:scale-[0.97] text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
+              >
+                {t("match.close")}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleReopen}
+              className="bg-gray-800 hover:bg-gray-700 active:scale-[0.97] text-gray-300 text-sm font-medium px-4 py-2 rounded-lg transition-[transform,background-color] duration-150"
+            >
+              {t("match.reopen")}
+            </button>
+          )}
+        </div>
       </div>
 
-      {times.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {times.map(([label, lista]) => {
-            const media = (lista.reduce((s, j) => s + j.rating, 0) / lista.length).toFixed(1);
-            return (
-              <div key={label} className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-                <p className="font-semibold mb-3">Time {label} <span className="text-gray-500 font-normal text-sm">média {media}</span></p>
-                <div className="flex flex-col gap-2">
-                  {lista.map((j) => (
-                    <div key={j.id} className="flex items-center justify-between">
-                      <span className="text-sm">{j.nome}</span>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleGols(j, -1)} className="text-gray-600 hover:text-white w-5 text-center">−</button>
-                        <span className="text-sm w-4 text-center">{j.gols}</span>
-                        <button onClick={() => handleGols(j, 1)} className="text-gray-600 hover:text-white w-5 text-center">+</button>
-                        <button onClick={() => togglePago(j)} className={`text-xs px-2 py-0.5 rounded ml-1 ${j.pago ? "bg-green-800 text-green-200" : "bg-gray-700 text-gray-400"}`}>{j.pago ? "Pago" : "Pendente"}</button>
+      {/* Teams */}
+      {teams.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {teams.map(([label, list]) => {
+              const avg = (list.reduce((s, p) => s + p.rating, 0) / list.length).toFixed(1);
+              const teamName = t(TEAM_KEYS[label] ?? label);
+              return (
+                <div
+                  key={label}
+                  className={`bg-gray-900 border border-gray-800 border-l-4 ${TEAM_BORDER[label] ?? "border-l-gray-600"} rounded-xl p-4`}
+                >
+                  <p className={`font-semibold mb-3 ${TEAM_LABEL[label] ?? "text-gray-300"}`}>
+                    {t("match.teamPrefix")} {teamName}{" "}
+                    <span className="text-gray-500 font-normal text-sm">{t("match.avg")} {avg}</span>
+                  </p>
+                  <div className="flex flex-col gap-2.5">
+                    {list.map((player) => (
+                      <div key={player.id} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-200">{player.name}</span>
+                        <button
+                          onClick={() => togglePaid(player)}
+                          className={`${paidBadge} ${
+                            player.paid
+                              ? "bg-green-500/20 text-green-400 ring-green-500/30"
+                              : "bg-gray-700/60 text-gray-500 ring-gray-600/40"
+                          }`}
+                        >
+                          {player.paid ? t("match.paid") : t("match.pending")}
+                        </button>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Scoreboard — 2 teams only */}
+          {isTwoTeams && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+              <p className="text-sm font-medium text-gray-400 mb-4">{t("match.score")}</p>
+              <div className="flex items-center justify-center gap-6">
+                <div className="flex flex-col items-center gap-2">
+                  <span className={`text-sm font-medium ${TEAM_LABEL.A}`}>{t("teams.black")}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleScore(-1, 0)} className={scoreBtn}>−</button>
+                    <span className="text-4xl font-bold w-12 text-center tabular-nums">
+                      {match.score_a ?? 0}
+                    </span>
+                    <button onClick={() => handleScore(1, 0)} className={scoreBtn}>+</button>
+                  </div>
+                </div>
+                <span className="text-2xl text-gray-700 font-bold pb-1">×</span>
+                <div className="flex flex-col items-center gap-2">
+                  <span className={`text-sm font-medium ${TEAM_LABEL.B}`}>{t("teams.white")}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleScore(0, -1)} className={scoreBtn}>−</button>
+                    <span className="text-4xl font-bold w-12 text-center tabular-nums">
+                      {match.score_b ?? 0}
+                    </span>
+                    <button onClick={() => handleScore(0, 1)} className={scoreBtn}>+</button>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+
+          {/* Teams message */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-gray-400">{t("match.teamsMsg")}</p>
+              <button
+                onClick={copyTeamsMessage}
+                className="text-sm text-green-400 hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
+              >
+                {copiedTeams ? t("match.copied") : t("match.copy")}
+              </button>
+            </div>
+            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+              {teamsMessage}
+            </pre>
+          </div>
+        </>
       )}
 
-      {semTime.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-8">
-          <p className="font-semibold mb-3 text-gray-400">Lista ({semTime.length})</p>
+      {/* Unassigned */}
+      {unassigned.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-8">
+          <p className="font-medium text-gray-400 mb-3 text-sm">
+            {t("match.list")} ({unassigned.length} {t("match.players")})
+          </p>
           <div className="flex flex-col gap-2">
-            {semTime.map((j) => (
-              <div key={j.id} className="flex items-center justify-between">
-                <span className="text-sm">{j.nome} <span className="text-gray-600">({j.rating})</span></span>
-                <button onClick={() => togglePago(j)} className={`text-xs px-2 py-0.5 rounded ${j.pago ? "bg-green-800 text-green-200" : "bg-gray-700 text-gray-400"}`}>{j.pago ? "Pago" : "Pendente"}</button>
+            {unassigned.map((player) => (
+              <div key={player.id} className="flex items-center justify-between">
+                <span className="text-sm">
+                  {player.name}{" "}
+                  <span className="text-gray-600 text-xs">({player.rating})</span>
+                </span>
+                <button
+                  onClick={() => togglePaid(player)}
+                  className={`${paidBadge} ${
+                    player.paid
+                      ? "bg-green-500/20 text-green-400 ring-green-500/30"
+                      : "bg-gray-700/60 text-gray-500 ring-gray-600/40"
+                  }`}
+                >
+                  {player.paid ? t("match.paid") : t("match.pending")}
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-semibold">Pagamentos <span className="text-gray-500 font-normal text-sm">{jogadores.filter((j) => j.pago).length}/{jogadores.length} pagos</span></p>
-          <button onClick={gerarCobranca} disabled={pendentes.length === 0} className="text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-40 px-3 py-1 rounded transition-colors">Gerar mensagem</button>
+      {/* My goals */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+        <p className="font-semibold mb-3">{t("match.myGoals")}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleMyGoals(-1)}
+            className={scoreBtn}
+          >
+            −
+          </button>
+          <span className="text-3xl font-bold w-10 text-center tabular-nums">
+            {match.organizer_goals ?? 0}
+          </span>
+          <button
+            onClick={() => handleMyGoals(1)}
+            className={scoreBtn}
+          >
+            +
+          </button>
         </div>
-        {mensagem && (
-          <div className="mt-2">
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-950 rounded p-3 font-sans">{mensagem}</pre>
-            <button onClick={copiar} className="mt-2 text-sm text-green-400 hover:text-green-300">{copiado ? "Copiado!" : "Copiar"}</button>
+      </div>
+
+      {/* Payments */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-semibold">
+            {t("match.payments")}{" "}
+            <span className="text-gray-500 font-normal text-sm">
+              {players.filter((p) => p.paid).length}/{players.length} {t("match.paid").toLowerCase()}
+            </span>
+          </p>
+          <button
+            onClick={generateReminder}
+            disabled={unpaid.length === 0}
+            className="text-sm bg-gray-800 hover:bg-gray-700 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-[transform,background-color] duration-150"
+          >
+            {t("match.generateReminder")}
+          </button>
+        </div>
+        {reminder && (
+          <div className="mt-3">
+            <pre className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-950 border border-gray-800 rounded-lg p-3 font-sans">
+              {reminder}
+            </pre>
+            <button
+              onClick={copyReminder}
+              className="mt-2 text-sm text-green-400 hover:text-green-300 active:scale-[0.97] transition-[transform,color] duration-150"
+            >
+              {copied ? t("match.copied") : t("match.copyClipboard")}
+            </button>
           </div>
         )}
       </div>

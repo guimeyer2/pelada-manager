@@ -1,29 +1,64 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getPeladas } from "../api/client";
+import { getMatches } from "../api/client";
+import { useLang } from "../i18n/LangContext";
+import Spinner from "../components/Spinner";
 
 export default function Home() {
-  const [peladas, setPeladas] = useState([]);
+  const { t } = useLang();
+  const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { getPeladas().then((r) => setPeladas(r.data)).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    getMatches()
+      .then((r) => setMatches(r.data))
+      .finally(() => setLoading(false));
+  }, []);
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  if (loading) return <Spinner />;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Peladas</h1>
-      {peladas.length === 0 && <p className="text-gray-500">Nenhuma pelada ainda. Crie a primeira!</p>}
-      <div className="flex flex-col gap-3">
-        {peladas.map((p) => (
-          <Link key={p.id} to={`/pelada/${p.id}`} className="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 flex items-center justify-between hover:border-green-600 transition-colors">
+      <h1 className="text-2xl font-bold mb-6">{t("home.title")}</h1>
+      {matches.length === 0 && (
+        <p className="text-gray-500 text-sm">{t("home.empty")}</p>
+      )}
+      <div className="flex flex-col gap-2.5">
+        {matches.map((match) => (
+          <Link
+            key={match.id}
+            to={`/match/${match.id}`}
+            className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-700 hover:-translate-y-px transition-[transform,border-color] duration-150"
+          >
             <div>
-              <p className="font-semibold">{new Date(p.data + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}</p>
-              <p className="text-sm text-gray-400 mt-0.5">{p.formato ?? "—"} · {p.total_jogadores} jogadores · {p.total_pagos}/{p.total_jogadores} pagos</p>
+              <p className="font-semibold">
+                {new Date(match.date + "T12:00:00").toLocaleDateString("pt-BR", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
+              </p>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {match.format ?? "—"} · {match.total_players} {t("home.players")} ·{" "}
+                {match.total_paid}/{match.total_players} {t("home.paid")}
+              </p>
             </div>
-            <div className="text-right">
-              <span className={`text-sm font-medium ${p.status === "aberta" ? "text-yellow-400" : "text-gray-500"}`}>{p.status}</span>
-              {p.valor_por_jogador && <p className="text-sm text-gray-400">R$ {p.valor_por_jogador.toFixed(2)}/pessoa</p>}
+            <div className="text-right flex flex-col items-end gap-1.5">
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  match.status === "open"
+                    ? "bg-yellow-500/15 text-yellow-400 ring-1 ring-yellow-500/20"
+                    : "bg-gray-800 text-gray-500"
+                }`}
+              >
+                {t(`status.${match.status}`)}
+              </span>
+              {match.fee_per_player && (
+                <p className="text-sm text-gray-400">
+                  R$ {match.fee_per_player.toFixed(2)}/{t("home.person")}
+                </p>
+              )}
             </div>
           </Link>
         ))}
