@@ -26,6 +26,7 @@ export const updateOrganizerGoals = (matchId, goals) =>
   api.patch(`/matches/${matchId}/organizer-goals`, { goals });
 export const updateScore = (matchId, scoreA, scoreB) =>
   api.patch(`/matches/${matchId}/score`, { score_a: scoreA, score_b: scoreB });
+export const deleteMatch = (id) => api.delete(`/matches/${id}`);
 export const getPaymentReminder = (matchId, pixKey = "") =>
   api.get(`/matches/${matchId}/payment-reminder`, { params: { pix_key: pixKey } });
 

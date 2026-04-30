@@ -43,7 +43,7 @@ def _to_mp_read(mp: MatchPlayer) -> MatchPlayerRead:
         rating=mp.player.rating,
         team=mp.team,
         paid=mp.paid,
-        goals=mp.goals,
+        goals=mp.goals or 0,
     )
 
 
@@ -305,6 +305,17 @@ def update_score(match_id: int, data: ScoreUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(match)
     return _to_match_read(match)
+
+
+@router.delete("/{match_id}", status_code=204)
+def delete_match(match_id: int, db: Session = Depends(get_db)):
+    """Delete a match and all its player associations."""
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    db.query(MatchPlayer).filter_by(match_id=match_id).delete()
+    db.delete(match)
+    db.commit()
 
 
 @router.get("/{match_id}/payment-reminder")

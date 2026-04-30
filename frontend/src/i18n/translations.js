@@ -55,6 +55,8 @@ export const translations = {
       payments: "Payments",
       generateReminder: "Generate reminder",
       copyClipboard: "Copy to clipboard",
+      delete: "Delete match",
+      deleteConfirm: "Delete this match? This cannot be undone.",
     },
     players: {
       title: "Players",
@@ -137,6 +139,8 @@ export const translations = {
       payments: "Pagamentos",
       generateReminder: "Gerar cobrança",
       copyClipboard: "Copiar para área de transferência",
+      delete: "Deletar partida",
+      deleteConfirm: "Deletar esta partida? Isso não pode ser desfeito.",
     },
     players: {
       title: "Jogadores",
