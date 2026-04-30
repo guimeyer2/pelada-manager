@@ -9,7 +9,7 @@ const inputClass =
 export default function NewMatch() {
   const { t } = useLang();
   const navigate = useNavigate();
-  const [matchDate, setMatchDate] = useState("");
+  const [matchDate, setMatchDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [rawList, setRawList] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
