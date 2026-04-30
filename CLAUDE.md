@@ -1,40 +1,65 @@
-# Pelada Manager — Contexto do Projeto
+# Pelada Manager — Project Context
 
-## O que é
-Aplicação web para organizar uma pelada semanal de futebol. O organizador gerencia a lista de jogadores, sorteia times equilibrados, controla pagamentos e mantém histórico de todas as peladas.
+## What it is
+Web app to organize a weekly football (futsal) game. The organizer manages the player list, draws balanced teams, tracks payments, and keeps a history of all matches.
 
-## Regras de negócio (imutáveis)
-- **12 confirmados** → formato 6x6, duração 1h30, valor por jogador: **R$ 28,75**
-- **15 confirmados** → formato 5v5v5, duração 2h, valor por jogador: **R$ 30,70**
-- A pelada ocorre toda **quinta-feira**
-- A lista é aberta toda **segunda-feira** no grupo do WhatsApp
-- Times são sorteados **equilibrando a média de ratings** dos jogadores (rating de 1 a 10)
-- Pagamento é via **PIX**, controlado manualmente (toggle pago/não pago por jogador)
+## Business rules (immutable)
+- **12 confirmed** → format 6x6, duration 1h30, fee per player: **R$ 28.75**
+- **15 confirmed** → format 5v5v5, duration 2h, fee per player: **R$ 30.70**
+- Match happens every **Thursday**
+- List opens every **Monday** in the WhatsApp group
+- Teams are drawn by **balancing average ratings** (rating 1–10)
+- Payment is via **PIX**, toggled manually per player (paid / pending)
 
 ## Features
-- Cadastro de jogadores com rating
-- Criação de pelada semanal
-- Importação de lista (cola nomes, resolve para cadastrados ou cria novo)
-- Detecção automática de formato (12 ou 15 jogadores)
-- Sorteio de times balanceados por média
-- Controle de pagamento por jogador
-- Geração de mensagem de cobrança para WhatsApp
-- Registro de gols por pelada
-- Dashboard de histórico e estatísticas
+- Player roster with rating and **alias system** (e.g. "brenoca" → resolves to "Breno")
+- Weekly match creation
+- List import: paste WhatsApp list → strips emojis, numbered lines only, resolves aliases → fuzzy match → creates new player if unknown
+- Auto-detection of format (12 or 15 players)
+- **Randomized** balanced team draw (snake draft, shuffled within equal-rating groups); reshuffle on demand
+- Team names: **Preto** / **Branco** / **Colorido** (Black / White / Colorful in EN)
+- Per-player payment toggle (Paid / Pending)
+- Payment reminder message for WhatsApp
+- **Scoreboard** for 2-team matches (Preto × Branco)
+- **Organizer goals** counter per match (Meyer's goals only — stored on the Match record)
+- Reopen closed matches
+- Stats dashboard: total matches, collected amount, 2-team/3-team breakdown, **my total goals**, **my goals in 2-team matches**
+- **EN / PT language toggle** — persisted in localStorage; default English
 
-## Fora do escopo (não implementar)
-- Leitura automática de comprovante PIX
-- Integração com WhatsApp API
-- Assistências por jogador
-- Autenticação/multi-usuário
+## Out of scope (do not implement)
+- Automatic PIX receipt reading
+- WhatsApp API integration
+- Assists per player
+- Auth / multi-user
 
 ## Stack
 - **Backend:** Python 3.12+, FastAPI, SQLAlchemy, SQLite, Pydantic v2
 - **Frontend:** React 18, Vite, Tailwind CSS v3, React Router v6, Axios
-- **Monorepo:** /backend e /frontend na raiz
+- **Monorepo:** /backend and /frontend at root
 
-## Convenções
-- Variáveis e funções em português
-- Arquivos e rotas em inglês/técnico
-- Schemas Pydantic: sufixo Create (input), Read (output), Update (PATCH)
-- Services sem dependência do FastAPI (lógica pura)
+## Database
+- SQLite file at `backend/pelada.db` (local, not committed)
+- Schema auto-created on startup via `Base.metadata.create_all`
+- **Column migrations** run automatically on startup (idempotent `ALTER TABLE` statements in `main.py`) — safe to add new columns without manual migration
+
+## Conventions
+- Everything in English: variables, functions, files, routes, comments
+- Pydantic schemas: `Create` (input), `Read` (output), `Update` (PATCH)
+- Services have no FastAPI dependency (pure logic)
+- Router files: `players.py`, `matches.py`, `stats.py`
+- Service files: `draw.py`, `formatter.py`
+
+## Frontend design system
+- Follows Emil Kowalski's design engineering principles (`.agents/skills/emil-design-eng/`)
+- Buttons: `active:scale-[0.97]` + `transition-[transform,background-color] duration-150`
+- Cards: `rounded-xl`, subtle `hover:-translate-y-px`
+- Transitions always specify exact properties (never `transition: all`)
+- Badges: pill shape with `ring-1` + opacity tint
+- Spinner shared component at `src/components/Spinner.jsx`
+- i18n via `src/i18n/LangContext.jsx` + `src/i18n/translations.js`
+
+## Key data model notes
+- `Player.aliases` — JSON array stored as Text; resolved before fuzzy match in `add_players`
+- `Match.organizer_goals` — integer, Meyer's goals for that match
+- `Match.score_a / score_b` — final score for 2-team matches (Team Preto / Branco)
+- Team labels A/B/C are internal; display names come from i18n (`teams.black`, `teams.white`, `teams.colorful`)
