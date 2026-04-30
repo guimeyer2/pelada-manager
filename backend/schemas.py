@@ -1,79 +1,116 @@
-from pydantic import BaseModel
+import json
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import date, datetime
-from models import FormatoPelada, StatusPelada, Time
+from models import MatchFormat, MatchStatus, Team
 
-class JogadorCreate(BaseModel):
-    nome: str
-    rating: float = 5.0
-    ativo: bool = True
 
-class JogadorUpdate(BaseModel):
-    nome: Optional[str] = None
-    rating: Optional[float] = None
-    ativo: Optional[bool] = None
+class PlayerCreate(BaseModel):
+    name: str
+    rating: float = Field(5.0, ge=1.0, le=10.0)
+    active: bool = True
+    aliases: list[str] = []
 
-class JogadorRead(BaseModel):
+
+class PlayerUpdate(BaseModel):
+    name: Optional[str] = None
+    rating: Optional[float] = Field(None, ge=1.0, le=10.0)
+    active: Optional[bool] = None
+    aliases: Optional[list[str]] = None
+
+
+class PlayerRead(BaseModel):
     id: int
-    nome: str
+    name: str
     rating: float
-    ativo: bool
-    criado_em: datetime
+    active: bool
+    aliases: list[str] = []
+    created_at: datetime
     model_config = {"from_attributes": True}
 
-class PeladaCreate(BaseModel):
-    data: date
+    @field_validator("aliases", mode="before")
+    @classmethod
+    def parse_aliases(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return []
+        return v or []
 
-class PeladaRead(BaseModel):
+
+class MatchCreate(BaseModel):
+    date: date
+
+
+class MatchRead(BaseModel):
     id: int
-    data: date
-    formato: Optional[FormatoPelada]
-    valor_por_jogador: Optional[float]
-    status: StatusPelada
-    criado_em: datetime
-    total_jogadores: Optional[int] = 0
-    total_pagos: Optional[int] = 0
+    date: date
+    format: Optional[MatchFormat]
+    fee_per_player: Optional[float]
+    status: MatchStatus
+    created_at: datetime
+    total_players: Optional[int] = 0
+    total_paid: Optional[int] = 0
+    organizer_goals: int = 0
+    score_a: Optional[int] = None
+    score_b: Optional[int] = None
     model_config = {"from_attributes": True}
 
-class AdicionarJogadoresInput(BaseModel):
-    nomes: list[str]
 
-class PeladaJogadorRead(BaseModel):
+class AddPlayersInput(BaseModel):
+    names: list[str]
+
+
+class MatchPlayerRead(BaseModel):
     id: int
-    jogador_id: int
-    nome: str
+    player_id: int
+    name: str
     rating: float
-    time: Optional[Time]
-    pago: bool
-    gols: int
+    team: Optional[Team]
+    paid: bool
+    goals: int
     model_config = {"from_attributes": True}
 
-class PagamentoUpdate(BaseModel):
-    pago: bool
 
-class GolsUpdate(BaseModel):
-    gols: int
+class PaymentUpdate(BaseModel):
+    paid: bool
 
-class SorteioResult(BaseModel):
-    times: dict[str, list[PeladaJogadorRead]]
-    media_por_time: dict[str, float]
 
-class JogadorStats(BaseModel):
-    jogador_id: int
-    nome: str
+class GoalsUpdate(BaseModel):
+    goals: int = Field(..., ge=0)
+
+
+class OrganizerGoalsUpdate(BaseModel):
+    goals: int = Field(..., ge=0)
+
+
+class ScoreUpdate(BaseModel):
+    score_a: int = Field(..., ge=0)
+    score_b: int = Field(..., ge=0)
+
+
+class DrawResult(BaseModel):
+    teams: dict[str, list[MatchPlayerRead]]
+    average_per_team: dict[str, float]
+
+
+class PlayerStats(BaseModel):
+    player_id: int
+    name: str
     rating: float
-    total_peladas: int
-    percentual_presenca: float
-    total_gols: int
-    total_pago: float
-    vitorias: int
-    derrotas: int
-    empates: int
+    total_matches: int
+    attendance_rate: float
+    total_goals: int
+    total_paid_amount: float
+
 
 class DashboardStats(BaseModel):
-    total_peladas: int
-    total_arrecadado: float
-    artilheiro: Optional[str]
-    jogador_mais_presente: Optional[str]
-    peladas_6x6: int
-    peladas_5v5v5: int
+    total_matches: int
+    total_collected: float
+    top_scorer: Optional[str]
+    most_present_player: Optional[str]
+    matches_6x6: int
+    matches_5v5v5: int
+    my_total_goals: int
+    my_goals_6x6: int
