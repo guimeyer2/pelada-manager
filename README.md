@@ -1,6 +1,6 @@
 # Pelada Manager
 
-Web app to organize a weekly futsal game — player roster, balanced team draw, payments, and match history.
+Web app to organize a weekly football game — player roster, balanced team draw, payments, and match history.
 
 ## Features
 
